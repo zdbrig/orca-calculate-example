@@ -1,0 +1,11 @@
+{
+    "compilerOptions": {
+      "module": "commonjs",
+      "esModuleInterop": true,
+      "target": "es6",
+      "sourceMap": true
+    },
+    "include": ["**/*.ts"],
+    "exclude": ["node_modules"]
+  }
+  
