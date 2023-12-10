@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SOL to USDC Orders</title>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid black;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+<body>
+
+<h2>SOL to USDC Stop Limit Order Tracking</h2>
+
+<table>
+    <tr>
+        <th>Order ID</th>
+        <th>Order Type</th>
+        <th>Price (USDC)</th>
+        <th>Status</th>
+        <th>Trigger Price (USDC)</th>
+        <th>Date/Time</th>
+        <th>Actions</th>
+    </tr>
+    <!-- Example rows with sample data -->
+    <tr>
+        <td>1001</td>
+        <td>Buy</td>
+        <td>35</td>
+        <td>Open</td>
+        <td>34</td>
+        <td>2023-12-10 09:00</td>
+        <td><button>Cancel</button></td>
+    </tr>
+    <tr>
+        <td>1002</td>
+        <td>Sell</td>
+        <td>36</td>
+        <td>Triggered</td>
+        <td>37</td>
+        <td>2023-12-10 09:30</td>
+        <td><button>Cancel</button></td>
+    </tr>
+    <tr>
+        <td>1003</td>
+        <td>Buy</td>
+        <td>34.5</td>
+        <td>Open</td>
+        <td>34</td>
+        <td>2023-12-10 10:00</td>
+        <td><button>Cancel</button></td>
+    </tr>
+    <!-- More rows can be added dynamically -->
+</table>
+
+</body>
+</html>
