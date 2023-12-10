@@ -9,55 +9,57 @@ import { DecimalUtil } from "@orca-so/common-sdk";
 dotenv.config();
 
 
+// Function to calculate position
+async function calculatePosition(liquidity: any, futurePrice: number, lowerPriceBound: number, upperPriceBound: number) {
+    try {
+        let pc = PriceMath.priceToSqrtPriceX64(DecimalUtil.fromNumber(futurePrice), liquidity.decimalA, liquidity.decimalB);
+        let pl = PriceMath.priceToSqrtPriceX64(DecimalUtil.fromNumber(lowerPriceBound), liquidity.decimalA, liquidity.decimalB);
+        let pu = PriceMath.priceToSqrtPriceX64(DecimalUtil.fromNumber(upperPriceBound), liquidity.decimalA, liquidity.decimalB);
 
-// Example parameters - replace these with actual values
-//const liquidity = new BN('5042021520');
-//const currentSqrtPrice = new BN('73550000');
-//const lowerSqrtPrice = new BN('72400000');
-//const upperSqrtPrice = new BN('75780000');
-//const roundUp = true; // or false
-/*
-function findPriceChangeForOneSolana(liquidity, currentSqrtPrice, lowerSqrtPrice, upperSqrtPrice, increase, tolerance, maxIterations) {
-    let iteration = 0;
-    let sqrtPriceShift = 0;
-    let currentSolana = 0;
-    let initialSolanaPosition = getTokenAmountsFromLiquidity(liquidity, currentSqrtPrice, lowerSqrtPrice, upperSqrtPrice, false).tokenA; // Assuming Solana is tokenA
+        let res = await getTokenAmountsFromLiquidity(liquidity.liquidity, pc, pl, pu, false);
 
-    while (iteration < maxIterations) {
-        sqrtPriceShift = increase ? sqrtPriceShift + smallIncrement : sqrtPriceShift - smallIncrement; // Adjust the increment as needed
-        let newSolanaPosition = getTokenAmountsFromLiquidity(liquidity, currentSqrtPrice + sqrtPriceShift, lowerSqrtPrice, upperSqrtPrice, false).tokenA;
+        let tokenA = res.tokenA.toNumber() / (10 ** parseFloat(liquidity.decimalA));
+        let tokenB = res.tokenB.toNumber() / (10 ** parseFloat(liquidity.decimalB));
 
-        currentSolana = newSolanaPosition - initialSolanaPosition;
-        if (Math.abs(currentSolana - 1) < tolerance) {
+        return { tokenA, tokenB };
+    } catch (error) {
+        console.error("Error in calculatePosition:", error);
+        throw error; // Rethrow the error for handling upstream
+    }
+}
+
+
+async function adjustPriceWithThreshold(liquidity: any, threshold: number, increase: boolean) {
+    let currentPrice = parseFloat(liquidity.whirlpoolPrice);
+    let incrementFactor = increase ? 1.001 : 0.999; // Increase or decrease the price
+    let maxIterations = 1000; // To prevent infinite loops, you can set a max iteration count
+    let tokenA = 0; // Declare tokenA outside the loop
+
+    for (let i = 0; i < maxIterations; i++) {
+        currentPrice *= incrementFactor;
+        let positionResult = await calculatePosition(liquidity, currentPrice, liquidity.lower, liquidity.upper);
+        tokenA = positionResult.tokenA;
+
+        let difference = Math.abs(parseFloat(liquidity.amountA) - tokenA);
+        if (difference >= threshold) {
             break;
         }
-
-        iteration++;
     }
 
-    return currentSqrtPrice + sqrtPriceShift;
+    return { finalPrice: currentPrice, finalTokenA: tokenA };
 }
-*/
-//let priceChange = findPriceChangeForOneSolana(liquidity, currentSqrtPrice, lowerSqrtPrice, upperSqrtPrice, true /* increase */, 0.01 /* tolerance */, 100 /* max iterations */);
 
-//console.log(priceChange);
+
+
 
 async function main() {
     try {
 
 
-        const wallet = new PublicKey("");
+        const wallet = new PublicKey(process.env.PUBKEY);
         const liquidityData = await getPositionsBywalletOrca(wallet);
         console.log(liquidityData)
 
-
-      /* const result = await getTokenAmountsFromLiquidity(
-            liquidity, 
-            currentSqrtPrice, 
-            lowerSqrtPrice, 
-            upperSqrtPrice, 
-            roundUp
-        );*/
         
         let liquidity = liquidityData[0];
 
@@ -67,17 +69,22 @@ async function main() {
         //@ts-ignore
         let upperPriceBound = liquidity.upper;
         //@ts-ignore
-        let futurePrice =  liquidity.whirlpoolPrice * 1.01;
+        let futurePrice =  liquidity.whirlpoolPrice * 1.00;
         console.log("future = " ,  futurePrice);
         //@ts-ignore
-        let pc = PriceMath.priceToSqrtPriceX64(DecimalUtil.fromNumber(futurePrice), liquidity.decimalA, liquidity.decimalB)
-            //console.log(pc)
-            //@ts-ignore
-            let pl = PriceMath.priceToSqrtPriceX64(DecimalUtil.fromNumber(lowerPriceBound), liquidity.decimalA, liquidity.decimalB)
-            //@ts-ignore
-            let pu = PriceMath.priceToSqrtPriceX64(DecimalUtil.fromNumber(upperPriceBound), liquidity.decimalA, liquidity.decimalB)
-           //@ts-ignore
-            await getTokenAmountsFromLiquidity(liquidity.liquidity, pc, pl, pu, false);
+        let { tokenA, tokenB } = await calculatePosition(liquidity, futurePrice, lowerPriceBound, upperPriceBound);
+        console.log(`Solana position: ${tokenA}, USDC position: ${tokenB}`);
+
+       
+        let threshold = 0.1; // Define your threshold
+
+        // Example of increasing the price
+        let { finalPrice: increasedPrice, finalTokenA: increasedTokenA } = await adjustPriceWithThreshold(liquidity, threshold, true);
+        console.log(`Increased price: ${increasedPrice}, Increased Token A position: ${increasedTokenA}`);
+
+        // Example of decreasing the price
+        let { finalPrice: decreasedPrice, finalTokenA: decreasedTokenA } = await adjustPriceWithThreshold(liquidity, threshold, false);
+        console.log(`Decreased price: ${decreasedPrice}, Decreased Token A position: ${decreasedTokenA}`);
 
     } catch (error) {
         console.error("Error:", error);

@@ -37,8 +37,6 @@ export async function getTokenAmountsFromLiquidity(
 
     // TODO: round up
 
-    console.log(tokenA);
-    console.log(tokenB);
     if (round_up) {
         return {
             tokenA: new u64(tokenA.ceil().toString()),
