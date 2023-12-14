@@ -29,8 +29,8 @@ async function calculatePosition(liquidity: any, futurePrice: number, lowerPrice
 }
 
 
-async function adjustPriceWithThreshold(liquidity: any, threshold: number, increase: boolean) {
-    let currentPrice = parseFloat(liquidity.whirlpoolPrice);
+async function adjustPriceWithThreshold(liquidity: any, futurePrice:number, threshold: number, increase: boolean) {
+    let currentPrice = futurePrice;
     let incrementFactor = increase ? 0.0001 : -0.0001; // Increase or decrease the price
     let maxIterations = 10000000; // To prevent infinite loops, you can set a max iteration count
     let tokenA = 0; // Declare tokenA outside the loop
@@ -48,7 +48,36 @@ async function adjustPriceWithThreshold(liquidity: any, threshold: number, incre
     return { finalPrice: currentPrice, finalTokenA: tokenA };
 }
 
+async function calculatePriceAdjustments(liquidity: any, futurePrice: number) {
+    //@ts-ignore
+    let lowerPriceBound = 65; //liquidity.lower;
+    //@ts-ignore
+    let upperPriceBound = 75; // liquidity.upper;
 
+    liquidity.upper = upperPriceBound;
+
+    liquidity.lower  = lowerPriceBound;
+    console.log("price = ", futurePrice);
+    //@ts-ignore
+
+    let { tokenA, tokenB } = await calculatePosition(liquidity, futurePrice, lowerPriceBound, upperPriceBound);
+    console.log(`Solana position: ${tokenA}, USDC position: ${tokenB}`);
+    liquidity.amountA = tokenA;
+    liquidity.amountB = tokenB;
+
+    let threshold = 1; // Define your threshold
+
+    console.log(`liquidity is now ${JSON.stringify(liquidity)}`);
+    // Example of increasing the price
+    let { finalPrice: increasedPrice, finalTokenA: increasedTokenA } = await adjustPriceWithThreshold(liquidity,futurePrice ,threshold, true);
+    console.log(`Increased price: ${increasedPrice}, Increased Token A position: ${increasedTokenA}`);
+
+    // Example of decreasing the price
+    let { finalPrice: decreasedPrice, finalTokenA: decreasedTokenA } = await adjustPriceWithThreshold(liquidity,futurePrice ,threshold, false);
+    console.log(`Decreased price: ${decreasedPrice}, Decreased Token A position: ${decreasedTokenA}`);
+
+    return { increasedPrice, decreasedPrice };
+}
 
 
 async function main() {
@@ -65,32 +94,10 @@ async function main() {
 
          liquidity.liquidity  *= 100;
         //@ts-ignore
-        let lowerPriceBound = 60; //liquidity.lower;
-        //@ts-ignore
-        let upperPriceBound = 70; // liquidity.upper;
-        //@ts-ignore
-        let futurePrice =  liquidity.whirlpoolPrice * 1.00;
-        console.log("price = " ,  futurePrice);
-        //@ts-ignore
-        liquidity.upper = upperPriceBound;
-        liquidity.lower = lowerPriceBound;
+        
+        let prices = await calculatePriceAdjustments(liquidity , 67);
 
-
-        let { tokenA, tokenB } = await calculatePosition(liquidity, futurePrice, lowerPriceBound, upperPriceBound);
-        console.log(`Solana position: ${tokenA}, USDC position: ${tokenB}`);
-        liquidity.amountA = tokenA;
-        liquidity.amountB = tokenB;
-       
-        let threshold = 1; // Define your threshold
-
-        // Example of increasing the price
-        let { finalPrice: increasedPrice, finalTokenA: increasedTokenA } = await adjustPriceWithThreshold(liquidity, threshold, true);
-        console.log(`Increased price: ${increasedPrice}, Increased Token A position: ${increasedTokenA}`);
-
-        // Example of decreasing the price
-        let { finalPrice: decreasedPrice, finalTokenA: decreasedTokenA } = await adjustPriceWithThreshold(liquidity, threshold, false);
-        console.log(`Decreased price: ${decreasedPrice}, Decreased Token A position: ${decreasedTokenA}`);
-
+        console.log(` prices are : ${JSON.stringify(prices)}`);
     } catch (error) {
         console.error("Error:", error);
     }
