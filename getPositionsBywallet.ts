@@ -80,3 +80,43 @@ export async function getPositionsBywalletOrca(publicKey:PublicKey):Promise<any[
     }
 })
 }
+
+export async function getFirstWhirlpoolPriceByWallet(publicKey: PublicKey): Promise<number> {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const provider = AnchorProvider.env();
+      //@ts-ignore
+      const ctx = WhirlpoolContext.withProvider(provider, ORCA_WHIRLPOOL_PROGRAM_ID);
+      const client = buildWhirlpoolClient(ctx);
+      const fetcher = new AccountFetcher(ctx.connection);
+  
+      const token_accounts = (await ctx.connection.getTokenAccountsByOwner(publicKey, { programId: TOKEN_PROGRAM_ID })).value;
+  
+      const whirlpool_position_candidate_pubkeys = token_accounts.map((ta) => {
+        const parsed = TokenUtil.deserializeTokenAccount(ta.account.data);
+        const pda = PDAUtil.getPosition(ctx.program.programId, parsed.mint);
+        return (parsed?.amount as BN).eq(new BN(1)) ? pda.publicKey : undefined;
+      }).filter(pubkey => pubkey !== undefined);
+  
+      const whirlpool_position_candidate_datas = await fetcher.listPositions(whirlpool_position_candidate_pubkeys, true);
+  
+      const whirlpool_positions = whirlpool_position_candidate_pubkeys.filter((pubkey, i) => 
+        whirlpool_position_candidate_datas[i] !== null
+      );
+
+      if (whirlpool_positions.length > 0) {
+        const position = await client.getPosition(whirlpool_positions[0]);
+        const pool = await client.getPool(position.getData().whirlpool);
+        const token_a = pool.getTokenAInfo();
+        const token_b = pool.getTokenBInfo();
+        const price = PriceMath.sqrtPriceX64ToPrice(pool.getData().sqrtPrice, token_a.decimals, token_b.decimals);
+
+        resolve(parseFloat(price.toFixed(token_b.decimals)));
+      } else {
+        resolve(0);
+      }
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
