@@ -33,7 +33,7 @@ The repository includes several key functions for interacting with the Orca prot
 Example usage:
 
 ```javascript
-// Example code showcasing how to use the functions
+calcUpperLower(78);
 ```
 
 ## Dependencies
