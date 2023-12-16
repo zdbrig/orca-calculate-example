@@ -14,11 +14,11 @@ This repository, "orca-calculate-example", provides a set of tools and functions
 
 ## Installation
 
-\```bash
+```bash
 git clone https://github.com/zdbrig/orca-calculate-example.git
 cd orca-calculate-example
 npm install
-\```
+```
 
 ## Usage
 
@@ -32,9 +32,9 @@ The repository includes several key functions for interacting with the Orca prot
 
 Example usage:
 
-\```javascript
+```javascript
 // Example code showcasing how to use the functions
-\```
+```
 
 ## Dependencies
 
@@ -49,8 +49,8 @@ Contributions to the "orca-calculate-example" are welcome. Please follow the sta
 
 ## License
 
-[Your chosen license]
+MIT LICENSE
 
-## Contact
 
-For any queries or suggestions, please open an issue in the repository or contact [Your Contact Information].
+
+
