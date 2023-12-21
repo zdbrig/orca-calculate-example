@@ -1,4 +1,3 @@
-import { BN } from "@project-serum/anchor";
 import { getTokenAmountsFromLiquidity } from "./getTokenAmountsFromLiquidity";
 import { PublicKey } from "@solana/web3.js";
 import { getFirstWhirlpoolPriceByWallet, getPositionsBywalletOrca } from "./getPositionsBywallet";
@@ -37,7 +36,7 @@ async function calculatePosition(
 
 async function adjustPriceWithThreshold(
     futurePrice: number,
-    threshold: number,
+    thresholdIncrements: number[],
     increase: boolean,
     amountA: number,
     liquidity: any,
@@ -46,53 +45,51 @@ async function adjustPriceWithThreshold(
     decimalA: number,
     decimalB: number
 ) {
+    let prices = [];
     let currentPrice = futurePrice;
-    let incrementFactor = increase ? 0.0001 : -0.0001; // Increase or decrease the price
-    let maxIterations = 10000000; // To prevent infinite loops, you can set a max iteration count
-    let tokenA = 0; // Declare tokenA outside the loop
 
-    for (let i = 0; i < maxIterations; i++) {
-        currentPrice += incrementFactor;
-       
-        let positionResult = await await calculatePosition(currentPrice, liquidity, lower, upper, decimalA, decimalB);
-        tokenA = positionResult.tokenA;
-        if  ((currentPrice < 0) || (currentPrice > upper) || (currentPrice < lower) ) {
-            break;
-        }
-        if (!tokenA) {
-            break;
-        }
-        let difference = Math.abs(amountA - tokenA);
-        if (difference >= threshold) {
-            break;
+    for (let threshold of thresholdIncrements) {
+        let incrementFactor = increase ? 0.0001 : -0.0001;
+        while (true) {
+            currentPrice += incrementFactor;
+            let positionResult = await calculatePosition(currentPrice, liquidity, lower, upper, decimalA, decimalB);
+            let tokenA = positionResult.tokenA;
+
+            if ((currentPrice < 0) || (currentPrice > upper) || (currentPrice < lower)) {
+                break;
+            }
+            if (!tokenA) {
+                break;
+            }
+
+            let difference = Math.abs(amountA - tokenA);
+            if (difference >= threshold) {
+                prices.push({ price: currentPrice, tokenA: positionResult.tokenA });
+                break;
+            }
         }
     }
 
-    return { finalPrice: currentPrice, finalTokenA: tokenA };
+    return prices;
 }
 
-async function calculatePriceAdjustments(futurePrice: number,
+async function calculatePriceAdjustments(
+    futurePrice: number,
     liquidity: any,
     lower: number,
     upper: number,
     decimalA: number,
-    decimalB: number
+    decimalB: number,
+    thresholdIncrements: number[]
 ) {
-
-
-
-
     let { tokenA, tokenB } = await calculatePosition(futurePrice, liquidity, lower, upper, decimalA, decimalB);
 
+    // Capture the initial values (the first iteration's results)
+    let initialIncreased = await adjustPriceWithThreshold(futurePrice, [0], true, tokenA, liquidity, lower, upper, decimalA, decimalB);
+    let initialDecreased = await adjustPriceWithThreshold(futurePrice, [0], false, tokenA, liquidity, lower, upper, decimalA, decimalB);
 
-    let threshold = 1; // Define your threshold
-
-    // console.log(`liquidity is now ${JSON.stringify(liquidity)}`);
-    // Example of increasing the price
-    let { finalPrice: increasedPrice, finalTokenA: increasedTokenA } = await adjustPriceWithThreshold(futurePrice, threshold, true, tokenA, liquidity, lower, upper, decimalA, decimalB);
-
-    // Example of decreasing the price
-    let { finalPrice: decreasedPrice, finalTokenA: decreasedTokenA } = await adjustPriceWithThreshold(futurePrice, threshold, false, tokenA, liquidity, lower, upper, decimalA, decimalB);
+    let increasedPrices = await adjustPriceWithThreshold(futurePrice, thresholdIncrements, true, tokenA, liquidity, lower, upper, decimalA, decimalB);
+    let decreasedPrices = await adjustPriceWithThreshold(futurePrice, thresholdIncrements, false, tokenA, liquidity, lower, upper, decimalA, decimalB);
 
     return {
         currentPosition: {
@@ -100,14 +97,10 @@ async function calculatePriceAdjustments(futurePrice: number,
             tokenA,
             tokenB
         },
-        upperPosition: {
-            price: increasedPrice,
-            tokenA: increasedTokenA
-        },
-        lowerPosition: {
-            price: decreasedPrice,
-            tokenA: decreasedTokenA
-        }
+        upperPosition: initialIncreased[0], // Original upper position
+        lowerPosition: initialDecreased[0], // Original lower position
+        nextUpperPositions: increasedPrices,
+        nextLowerPositions: decreasedPrices
     };
 }
 
@@ -115,8 +108,8 @@ async function calculatePriceAdjustments(futurePrice: number,
 async function calcUpperLower(
     price: number,
      liquidity = 110309787400,
-     lower = 70,
-     upper = 80,
+     lower = 80,
+     upper = 90,
      decimalA = 9,
      decimalB = 6
 
@@ -124,7 +117,7 @@ async function calcUpperLower(
     try {
 
 
-        let prices = await calculatePriceAdjustments(price,  liquidity,  lower,  upper,  decimalA,  decimalB);
+        let prices = await calculatePriceAdjustments(price,  liquidity,  lower,  upper,  decimalA,  decimalB , [1,2,3 , 4,5,6,7]);
 
 
         console.log(` prices are : ${JSON.stringify(prices, null, 4)}`);
@@ -135,7 +128,7 @@ async function calcUpperLower(
 
 
 
-calcUpperLower(78);
+calcUpperLower(88);
 
 async function calcUpperLowerByCurrentPrice() {
     let price = await getFirstWhirlpoolPriceByWallet(new PublicKey(process.env.PUBKEY));
